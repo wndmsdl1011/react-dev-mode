@@ -24,7 +24,7 @@ import UserWillListPage from "../pages/WillListPage/UserWillListPage";
 import NotaryWillListPage from "../pages/WillListPage/NotaryWillListPage";
 
 const AppRouter = () => {
-  const userType = useSelector((state) => state.auth?.user?.userType);
+  const userType = sessionStorage.getItem('role'); 
 
   return (
     <Routes>
@@ -46,8 +46,8 @@ const AppRouter = () => {
         <Route
           path="/success"
           element={
-            userType === "NOTARY" ? (
-              <NotaryWillListPage />
+            userType == "NOTARY" ? (
+              <AdminManagement />
             ) : (
               <UserWillListPage />
             )

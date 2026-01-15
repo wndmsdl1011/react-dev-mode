@@ -150,7 +150,7 @@ const PersonalRegisterPage = () => {
     password: "",
     name: "",
     phone: "",
-    birthdate: "",
+    birth: "",
     gender: "MAN",
     agreeTerms: false,
     agreePrivacy: false,
@@ -159,7 +159,7 @@ const PersonalRegisterPage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === "birthdate") return;
+    if (name === "birth") return;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -171,9 +171,9 @@ const PersonalRegisterPage = () => {
   const handleBirthdateChange = (date) => {
     if (date) {
       const formattedDate = format(date, "yyyy-MM-dd");
-      setForm((prev) => ({ ...prev, birthdate: formattedDate }));
+      setForm((prev) => ({ ...prev, birth: formattedDate }));
     } else {
-      setForm((prev) => ({ ...prev, birthdate: "" }));
+      setForm((prev) => ({ ...prev, birth: "" }));
     }
   };
 
@@ -184,12 +184,16 @@ const PersonalRegisterPage = () => {
       password: form.password,
       name: form.name,
       phone: form.phone,
-      birthdate: form.birthdate,
+      birth: form.birth,
       gender: form.gender,
       agreeTerms: form.agreeTerms,
       agreePrivacy: form.agreePrivacy,
       marketingConsent: form.marketingConsent,
       role: "USER",
+      address:"1",
+       companyName: "필드가 없음",
+  registrationNumber: "필드가 없음"
+
     };
     console.log("회원가입 요청:", requestBody);
     dispatch(registerUser({ values: form, navigate }));
@@ -278,7 +282,7 @@ const PersonalRegisterPage = () => {
             <StyledIcon icon={faUser} />
             <div style={{ width: "100%" }}>
               <DatePicker
-                selected={form.birthdate ? new Date(form.birthdate) : null}
+                selected={form.birth ? new Date(form.birth) : null}
                 onChange={handleBirthdateChange}
                 locale={ko}
                 dateFormat="yyyy-MM-dd"

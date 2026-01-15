@@ -1,4 +1,5 @@
-import React from "react";
+// application/client-react/src/pages/NotaryServicePage.js
+import React, { useState, useEffect } from "react"; // useState, useEffect 임포트
 import styled from "styled-components";
 import {
   FaPhoneAlt,
@@ -8,7 +9,9 @@ import {
   FaLightbulb,
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux"; // useDispatch 임포트
+import notaryService from "../../services/notaryService"; // notaryService 임포트
+import { showToastMessage } from "../../features/common/uiSlice"; // 토스트 메시지용
 
 const Container = styled.div`
   max-width: 850px;
@@ -158,9 +161,42 @@ const CreateServiceButton = styled.button`
 `;
 
 const NotaryServicePage = () => {
-  const userType = useSelector((state) => state.user?.user?.userType);
-  const isNotary = userType === "NOTARY";
+  const user =sessionStorage.getItem('role');  ; // 상세 사용자 정보 접근
+  const isNotary = user === "NOTARY";
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  const [promotions, setPromotions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPromotions = async () => {
+      setIsLoading(true);
+      try {
+        const data = await notaryService.getAllPublicNotaryPromotions();
+        setPromotions(data || []); // 데이터가 null일 경우 빈 배열로 초기화
+      } catch (error) {
+        console.error("공증인 목록 로딩 실패:", error);
+        dispatch(showToastMessage({ message: error.message || "공증인 목록을 불러오는데 실패했습니다.", status: "error" }));
+        setPromotions([]); // 오류 발생 시 빈 배열
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPromotions();
+  }, [dispatch]);
+
+  if (isLoading) {
+    return (
+      <Container>
+        <Header>공증인 목록</Header>
+        <p style={{ textAlign: "center", marginTop: "40px" }}>
+          공증인 목록을 불러오는 중입니다...
+        </p>
+      </Container>
+    );
+  }
 
   return (
     <Container>
@@ -176,67 +212,100 @@ const NotaryServicePage = () => {
           <CreateServiceButton
             onClick={() => navigate("/notary-service/create")}
           >
-            <FaPlus /> 공증 서비스 등록하기
+            <FaPlus /> 내 공증 서비스 관리
           </CreateServiceButton>
         )}
       </div>
 
-      {[1, 2, 3].map((n) => (
-        <NotaryCard key={n}>
+      {promotions.length === 0 && !isLoading && (
+        <p style={{ textAlign: "center", marginTop: "40px" }}>
+          등록된 공증인 서비스가 없습니다.
+        </p>
+      )}
+
+      {promotions.map((promo) => (
+        <NotaryCard key={promo.userId || promo.promotionId}> {/* 고유한 key 사용 */}
           <TopSection>
             <ProfileSection>
-              <LargeProfileImage src="https://randomuser.me/api/portraits/men/32.jpg" />
+              {/* 백엔드에서 profile_image_url 필드를 추가하고 데이터를 넣었다면 사용 */}
+              <LargeProfileImage 
+                src={promo.profile_image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(promo.userName || 'N')}&background=random&size=100`} 
+                alt={`${promo.userName} 프로필`}
+              />
             </ProfileSection>
             <CardContent>
-              <TagRow>
-                <FaHandPointer style={{ color: "#f7b500" }} />
-                <Tag>예약준수</Tag>
-                <FaLightbulb style={{ color: "#f7b500" }} />
-                <Tag>해결사</Tag>
-              </TagRow>
-              <Name>홍길동 변호사</Name>
-              <SubInfo>법무법인 정인 | 관련분야 후기 8개</SubInfo>
+              {/* <TagRow>
+                {promo.special_tags?.includes("예약준수") && <><FaHandPointer style={{ color: "#f7b500" }} /><Tag>예약준수</Tag></>}
+                {promo.special_tags?.includes("해결사") && <><FaLightbulb style={{ color: "#f7b500" }} /><Tag>해결사</Tag></>}
+              </TagRow> */}
+              {/* special_tags는 새 스키마에 없으므로 일단 주석 처리, 필요시 NotaryPromotions에 추가 */}
+              <Name>{promo.userName || "이름 없음"}</Name>
+              <SubInfo>{promo.userCompanyName || "회사 정보 없음"}</SubInfo>
               <Description>
-                &lt;상속 10년차&gt; 상속·재산분할 전문 / 꾸준한 승소전략
+                {promo.description || "소개글이 아직 없습니다."}
               </Description>
               <HashTags>
-                <HashTag>#재산분할</HashTag>
-                <HashTag>#기여분</HashTag>
+                {Array.isArray(promo.tags) && promo.tags.map((tag, index) => (
+                  <HashTag key={`${tag}-${index}`}>#{tag}</HashTag>
+                ))}
               </HashTags>
               <QuickIcons>
                 <span className="label">간편 문의</span>
-                <CircleIcon>
-                  <FaPhoneAlt />
-                </CircleIcon>
-                <CircleIcon>
-                  <FaCommentDots />
-                </CircleIcon>
+                {promo.company_phone && (
+                  <CircleIcon onClick={() => window.open(`tel:${promo.company_phone}`)} title={`사무실: ${promo.company_phone}`}>
+                    <FaPhoneAlt />
+                  </CircleIcon>
+                )}
+                {promo.consultation_phone && (
+                   <CircleIcon onClick={() => window.open(`tel:${promo.consultation_phone}`)} title={`상담: ${promo.consultation_phone}`}>
+                    <FaCommentDots /> {/* 아이콘은 FaCommentDots 대신 다른 전화 아이콘을 쓰거나, FaPhoneSlash등으로 구분 가능*/}
+                  </CircleIcon>
+                )}
               </QuickIcons>
             </CardContent>
           </TopSection>
           <ConsultBox>
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <ConsultRow>
-                <ConsultLabel>15분 전화상담</ConsultLabel>
-                <ConsultPrice>25,000원</ConsultPrice>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", justifyContent: "center", gap: '16px' }}>
+              <ConsultRow disabled={promo.phone_consultation_fee === null}>
+                <ConsultLabel>전화상담</ConsultLabel>
+                <ConsultPrice>
+                  {promo.phone_consultation_fee !== null 
+                    ? (promo.phone_consultation_fee === 0 ? "무료" : `${Number(promo.phone_consultation_fee).toLocaleString()}원`) 
+                    : "제공안함"}
+                </ConsultPrice>
               </ConsultRow>
               <div
                 style={{
                   height: "32px",
                   width: "1px",
                   backgroundColor: "#ccc",
-                  margin: "0 24px",
+                  margin: "0 12px", // 간격 조정
                 }}
+                className="divider-vertical"
               />
-              <ConsultRow disabled>
-                <ConsultLabel>30분 방문상담</ConsultLabel>
-                <ConsultPrice>60,000원</ConsultPrice>
+              <ConsultRow disabled={promo.visit_consultation_fee === null}>
+                <ConsultLabel>방문상담</ConsultLabel>
+                <ConsultPrice>
+                  {promo.visit_consultation_fee !== null 
+                    ? (promo.visit_consultation_fee === 0 ? "무료" : `${Number(promo.visit_consultation_fee).toLocaleString()}원`) 
+                    : "제공안함"}
+                </ConsultPrice>
               </ConsultRow>
             </div>
             <ActionButtonsWrapper>
               <ActionButtons>
-                <FilledButtonPrimary>상담 예약하기</FilledButtonPrimary>
-                <FilledButtonSecondary>공증 신청하기</FilledButtonSecondary>
+                {/* 상세 페이지가 있다면 해당 경로로, 없다면 다른 액션 (예: 바로 전화걸기, 문의폼 등) */}
+                <FilledButtonPrimary 
+                  onClick={() => {
+                    // 상세 페이지로 이동하거나 다른 액션 수행
+                    // navigate(`/notary/promotion/${promo.userId}`); 
+                    if(promo.company_phone) window.open(`tel:${promo.company_phone}`);
+                    else if(promo.consultation_phone) window.open(`tel:${promo.consultation_phone}`);
+                    else dispatch(showToastMessage({message: "연락처 정보가 없습니다.", status: "info"}));
+                  }}
+                >
+                  상담 바로 연결
+                </FilledButtonPrimary>
               </ActionButtons>
             </ActionButtonsWrapper>
           </ConsultBox>

@@ -317,7 +317,7 @@ const AppLayout = () => {
               <button className="login" onClick={() => navigate("/login")}>
                 로그인
               </button>
-              <button className="signup" onClick={() => navigate("/login")}>
+              <button className="signup" onClick={() => navigate("/register")}>
                 회원가입
               </button>
             </>

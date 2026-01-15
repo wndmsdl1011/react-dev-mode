@@ -397,7 +397,7 @@ const WillDetailPage = () => {
     }
     try {
       const encoder = new TextEncoder();
-      const data = encoder.encode(message);
+      const data = encoder.encode(message);// 여기
       const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray

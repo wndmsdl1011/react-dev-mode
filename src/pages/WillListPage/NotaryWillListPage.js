@@ -1,4 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchMyWills,
+  fetchDesignatedWills,
+} from "../../features/post/willSlice";
+import { useNavigate } from "react-router-dom";
 import {
   Container,
   ProfileSection,
@@ -13,103 +19,123 @@ import {
   DocumentTitle,
   InfoRow,
   HashText,
+  CopyIcon,
   Label,
   DocumentInfo,
   ActionButtons,
   EditButton,
   DeleteButton,
+  ButtonIcon,
 } from "./style/WillListPageStyle";
-import { FaCopy, FaEdit, FaTrashAlt, FaFileAlt } from "react-icons/fa";
 
 const WillListPage = () => {
-  const exampleWills = [
-    {
-      id: 1,
-      title: "김용현의 유언장",
-      hash: "0x123456789abcdef",
-      blockchainRegistered: true,
-      notarized: true,
-      viewers: "공영선, 류금태, 나수석",
-    },
-    {
-      id: 2,
-      title: "테스트 유언장",
-      hash: "0xabcdef123456789",
-      blockchainRegistered: true,
-      notarized: false,
-      viewers: "김용현, 김경기",
-    },
-    {
-      id: 3,
-      title: "예비 유언장",
-      hash: "0x987654321fedcba",
-      blockchainRegistered: false,
-      notarized: false,
-      viewers: "김현섭",
-    },
-    {
-      id: 4,
-      title: "샘플 유언장",
-      hash: "0xdeadbeefcafebabe",
-      blockchainRegistered: true,
-      notarized: true,
-      viewers: "이수진, 박지윤, 김민수",
-    },
-  ];
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const [username, setUsername] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { myWills, designatedWills, loading } = useSelector(
+    (state) => state.will
+  );
+
+  useEffect(() => {
+    const storedUsername = sessionStorage.getItem("username");
+    if (storedUsername) {
+      setUsername(storedUsername);
+      dispatch(fetchMyWills(storedUsername));
+      dispatch(fetchDesignatedWills(storedUsername));
+    }
+  }, [dispatch]);
+
+  const filterWills = (list) => {
+    if (!searchTerm) return list;
+    const keyword = searchTerm.toLowerCase();
+    return list.filter(
+      (item) =>
+        (item.id || "").toString().toLowerCase().includes(keyword) ||
+        (item.title || "").toLowerCase().includes(keyword)
+    );
+  };
+
+  const handleItemClick = (id) => {
+    if (id) navigate(`/will/${id}`);
+  };
+
+  const renderList = (title, list, type) => (
+    <>
+      <h3 style={{ marginTop: "24px" }}>{title}</h3>
+      <DocumentList>
+        {loading ? (
+          <p>로딩 중...</p>
+        ) : list.length > 0 ? (
+          list.map((will) => (
+            <DocumentItem
+              key={will.id}
+              onClick={() => handleItemClick(will.id)}
+            >
+              <LeftSection>📄</LeftSection>
+              <CenterSection>
+                <DocumentTitle>{will.title || "제목 없음"}</DocumentTitle>
+                <InfoRow>
+                  <HashText>{will.hash || "해시 없음"}</HashText>
+                  <CopyIcon src="/images/E10.PNG" alt="복사" />
+                  {will.blockchainRegistered && (
+                    <Label $blockchain>블록체인 등록됨</Label>
+                  )}
+                  {will.notarized && <Label $notarized>공증 완료</Label>}
+                </InfoRow>
+                {type === "designated" && (
+                  <DocumentInfo>작성자: {will.testatorId}</DocumentInfo>
+                )}
+              </CenterSection>
+              <RightSection>
+                <ActionButtons>
+                  <EditButton>
+                    <ButtonIcon src="/images/D2.PNG" alt="수정" />
+                    수정하기
+                  </EditButton>
+                  <DeleteButton>
+                    <ButtonIcon src="/images/D3.PNG" alt="삭제" />
+                    삭제하기
+                  </DeleteButton>
+                </ActionButtons>
+              </RightSection>
+            </DocumentItem>
+          ))
+        ) : (
+          <p>유언장이 없습니다.</p>
+        )}
+      </DocumentList>
+    </>
+  );
 
   return (
     <Container>
       <ProfileSection>
         <ProfileImage src="/images/back.PNG" alt="프로필" />
         <ProfileInfo>
-          <h2>김용현</h2>
+          <h2>{username || "사용자"}</h2>
           <p>가입일: 2023년 8월</p>
-          <p>kim.yh@example.com</p>
+          <p>{username}@example.com</p>
         </ProfileInfo>
-        <CreateButton>유언장 작성 시작하기</CreateButton>
+        <CreateButton onClick={() => navigate("/write")}>
+          유언장 작성 시작하기
+        </CreateButton>
       </ProfileSection>
 
-      <DocumentList>
-        {exampleWills.map((will) => (
-          <DocumentItem key={will.id}>
-            <LeftSection>
-              <FaFileAlt size={50} color="#6366f1" />
-            </LeftSection>
+      <input
+        className="form-control mb-3"
+        placeholder="검색어를 입력하세요 (ID 또는 제목)"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
 
-            <CenterSection>
-              <DocumentTitle>{will.title}</DocumentTitle>
-
-              <InfoRow>
-                <HashText>{will.hash}</HashText>
-                <FaCopy
-                  size={16}
-                  color="#6b7280"
-                  style={{ cursor: "pointer" }}
-                />
-                {will.blockchainRegistered && (
-                  <Label $blockchain>블록체인 등록됨</Label>
-                )}
-                {will.notarized && <Label $notarized>공증 완료</Label>}
-              </InfoRow>
-
-              <DocumentInfo>열람자: {will.viewers}</DocumentInfo>
-            </CenterSection>
-
-            <RightSection>
-              <ActionButtons>
-                <EditButton>
-                  <FaEdit size={16} style={{ marginRight: "6px" }} />
-                  수정하기
-                </EditButton>
-                <DeleteButton>
-                  <FaTrashAlt size={16} style={{ marginRight: "6px" }} />
-                  삭제하기
-                </DeleteButton>
-              </ActionButtons>
-            </RightSection>
-          </DocumentItem>
-        ))}
-      </DocumentList>
+      {renderList("나의 유언장", filterWills(myWills), "my")}
+      {renderList(
+        "내가 지정 열람자인 유언장",
+        filterWills(designatedWills),
+        "designated"
+      )}
     </Container>
   );
 };

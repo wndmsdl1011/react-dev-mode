@@ -1,6 +1,5 @@
-// application/client-react/src/pages/AdminManagement.js
-// 또는 application/client-react/src/pages/AdminWillManagementPage.js
-
+// application/client-react/src/pages/DesignatedWillManagementPage.js
+// (인증 로직 간소화 버전)
 import React, { useState, useEffect, useCallback } from "react";
 import {
   PageContainer,
@@ -21,19 +20,24 @@ import {
   Th,
 } from "./Style/AdminManagementStyle";
 import { MdArrowDownward, MdArrowUpward } from "react-icons/md";
-// import willService from "../../services/willService"; // 경로 확인 필요
-import willService from "../../services/willService"; // 일반적인 src 내 경로로 수정
+import willService from "../../services/willService";
 
-const AdminWillManagementPage = () => {
+// --- getCurrentUserInfo 및 currentUser 관련 로직 제거 ---
+// 이 컴포넌트는 로그인된 사용자의 username을 이미 알고 있다고 가정합니다.
+// 실제 애플리케이션에서는 props, Context API 등을 통해 전달받습니다.
+const LOGGED_IN_USER_USERNAME = sessionStorage.getItem('username'); 
+// TODO: 위 값은 실제 인증 시스템에서 가져온 현재 로그인된 사용자 ID (예: 이메일)로 대체되어야 합니다.
+
+const DesignatedWillManagementPage = () => {
   const [wills, setWills] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState(''); // 성공 메시지 상태 추가
+  const [successMessage, setSuccessMessage] = useState('');
   const [selectedWillIds, setSelectedWillIds] = useState(new Set());
-  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'descending' }); 
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'descending' });
 
   const [searchParams, setSearchParams] = useState({
-    condition: "", 
+    condition: "",
     keyword: "",
   });
 
@@ -41,12 +45,17 @@ const AdminWillManagementPage = () => {
   const [newStatusForAction, setNewStatusForAction] = useState("");
 
   const fetchWills = useCallback(async () => {
+    // LOGGED_IN_USER_USERNAME 사용
+    if (!LOGGED_IN_USER_USERNAME) {
+      setError("사용자 정보가 없어 유언장 목록을 조회할 수 없습니다.");
+      return;
+    }
     setIsLoading(true);
-    // setError(''); // 목록 조회 시에는 이전 성공/오류 메시지 유지 가능, 혹은 초기화 선택
-    // setSuccessMessage(''); 
+    // setSuccessMessage(''); // 필요에 따라 초기화
+    // setError('');
     try {
-      const data = await willService.getAllWillsByAdmin();
-      // console.log(data); // 개발 중 확인용 로그
+      const data = await willService.getDesignatedViewersWills(LOGGED_IN_USER_USERNAME);
+      console.log(data);
       let filteredData = data || [];
       if (searchParams.condition && searchParams.keyword) {
           const lowerKeyword = searchParams.keyword.toLowerCase();
@@ -70,14 +79,13 @@ const AdminWillManagementPage = () => {
       }
       setWills(filteredData);
     } catch (err) {
-      console.error("Error fetching wills:", err.data || err.message);
-      setError(err.data?.error || err.message || '유언장 목록을 불러오는 데 실패했습니다.');
-      setSuccessMessage(''); // 오류 발생 시 성공 메시지 초기화
+      console.error(`Error fetching designated wills for ${LOGGED_IN_USER_USERNAME}:`, err.data || err.message);
+      setError(err.data?.error || err.message || '지정 열람 유언장 목록을 불러오는 데 실패했습니다.');
       setWills([]);
     } finally {
       setIsLoading(false);
     }
-  }, [searchParams]); 
+  }, [searchParams]); // LOGGED_IN_USER_USERNAME은 이제 의존성 배열에서 제거 가능 (상수로 취급)
 
   useEffect(() => {
     fetchWills();
@@ -115,8 +123,11 @@ const AdminWillManagementPage = () => {
     }
   };
 
-  // 상태 변경 로직 수정
   const handleChangeWillStatus = async () => {
+    if (!LOGGED_IN_USER_USERNAME) {
+        setError("상태 변경을 위한 사용자 정보가 없습니다.");
+        return;
+    }
     if (selectedWillIds.size === 0) {
       alert("상태를 변경할 유언장을 선택해주세요.");
       return;
@@ -128,23 +139,20 @@ const AdminWillManagementPage = () => {
 
     setIsLoading(true);
     setError('');
-    setSuccessMessage(''); // 이전 성공 메시지 초기화
+    setSuccessMessage('');
     let successCount = 0;
     let errorCount = 0;
     let lastErrorMessage = '';
 
-    // 여러 항목 동시 처리 시 Promise.allSettled 사용 고려 가능
-    for (const willId of selectedWillIds) { // Set은 순서가 보장되지 않지만, 여기서는 개별 처리하므로 괜찮음
+    for (const willId of selectedWillIds) {
       try {
-        const response = await willService.updateWillStatusAdmin(willId, newStatusForAction);
-        console.log(`Status of will ID ${willId} updated to ${newStatusForAction}. Message: ${response.message}`);
+        const response = await willService.updateWillStatusAdmin(willId, newStatusForAction, LOGGED_IN_USER_USERNAME);
+        console.log(`Status of will ID ${willId} updated to ${newStatusForAction} by ${LOGGED_IN_USER_USERNAME}. Message: ${response.message}`);
         successCount++;
       } catch (err) {
-        console.error(`Error updating status for will ${willId}:`, err.data || err.message);
+        console.error(`Error updating status for will ${willId} by ${LOGGED_IN_USER_USERNAME}:`, err.data || err.message);
         lastErrorMessage = err.data?.error || err.message || `${willId} 상태 변경 실패`;
         errorCount++;
-        // 여러 개 중 하나라도 실패하면 반복 중단 또는 계속 진행 후 종합 메시지 표시 선택 가능
-        // 여기서는 계속 진행하고 마지막 에러 메시지를 표시
       }
     }
     setIsLoading(false);
@@ -158,9 +166,9 @@ const AdminWillManagementPage = () => {
         setError(`${errorCount}개 유언장 상태 변경 중 오류 발생: ${lastErrorMessage}`);
     }
     
-    setSelectedWillIds(new Set()); // 선택 해제
-    setNewStatusForAction(""); // 상태 선택 드롭다운 초기화
-    fetchWills(); // 목록 새로고침
+    setSelectedWillIds(new Set());
+    setNewStatusForAction("");
+    fetchWills();
   };
 
   const requestSort = (key) => {
@@ -207,23 +215,39 @@ const AdminWillManagementPage = () => {
     }
     return <MdArrowDownward size={16} style={{ opacity: 0.3 }}/>; 
   };
-
+  
   const handleViewWillDetail = async (willId) => {
+    if (!LOGGED_IN_USER_USERNAME) {
+        setError("상세 정보 조회를 위한 사용자 정보가 없습니다.");
+        return;
+    }
     setIsLoading(true);
     setError('');
     setSuccessMessage('');
     setSelectedWillDetail(null);
     try {
-        const data = await willService.getWillDetailByIdAdmin(willId);
+        const data = await willService.getWillDetailByIdAdmin(willId, LOGGED_IN_USER_USERNAME);
         setSelectedWillDetail(data);
     } catch (err) {
-        console.error(`Error fetching will detail for ID ${willId} (admin):`, err.data || err.message);
+        console.error(`Error fetching will detail for ID ${willId} by ${LOGGED_IN_USER_USERNAME}:`, err.data || err.message);
         setError(err.data?.error || err.message || `ID가 ${willId}인 유언장 상세 정보를 불러오는 데 실패했습니다.`);
         setSelectedWillDetail(null);
     } finally {
         setIsLoading(false);
     }
   };
+
+  if (!LOGGED_IN_USER_USERNAME && !error) { // LOGGED_IN_USER_USERNAME이 없다는 것은 심각한 상황 (설정 오류 등)
+    return (
+        <PageContainer>
+            <Title>오류</Title>
+            <div style={{ color: 'red', marginBottom: '10px', padding: '10px', border: '1px solid red', borderRadius: '4px' }}>
+                로그인된 사용자 정보를 가져올 수 없습니다. (애플리케이션 설정 오류 가능성)
+            </div>
+        </PageContainer>
+    );
+  }
+
 
   if (selectedWillDetail) {
     return (
@@ -244,12 +268,10 @@ const AdminWillManagementPage = () => {
 
   return (
     <PageContainer>
-      <Title>관리자 유언장 관리 페이지</Title>
+      <Title>나의 지정 열람 유언장 관리</Title>
 
-      {/* 성공 및 오류 메시지 표시 영역 */}
       {successMessage && <div style={{ color: 'green', marginBottom: '10px', padding: '10px', border: '1px solid green', borderRadius: '4px' }}>{successMessage}</div>}
       {error && <div style={{ color: 'red', marginBottom: '10px', padding: '10px', border: '1px solid red', borderRadius: '4px' }}>오류: {error}</div>}
-
 
       <TopControls>
         <SearchRow>
@@ -261,7 +283,7 @@ const AdminWillManagementPage = () => {
             <option value="id">유언장 ID (해시)</option>
             <option value="status">상태</option>
             <option value="title">제목 (해시)</option> 
-            <option value="testatorId">작성자 ID (해시)</option> 
+            <option value="testatorId">작성자 ID (해시)</option>
           </Select>
           <Input
             type="text"
@@ -288,13 +310,12 @@ const AdminWillManagementPage = () => {
             disabled={isLoading}
         >
             <option value="">변경할 상태 선택</option>
-            <option value="REGISTERED">REGISTERED</option>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="EXPIRED">EXPIRED</option>
-            {/* 체인코드에 정의된 상태값과 일치하도록 */}
-            <option value="REVOKED_BY_ADMIN">REVOKED_BY_ADMIN</option> 
-            <option value="EXECUTED">EXECUTED</option> 
-            {/* REVOKED는 REVOKED_BY_ADMIN 또는 REVOKED_BY_TESTATOR 등으로 구체화될 수 있음. 체인코드 확인 필요 */}
+            {/* 체인코드(UpdateWillStatusByAdmin)에서 허용하는 상태값으로 변경 */}
+            <option value="REGISTERED">등록됨 (REGISTERED)</option>
+            <option value="ACTIVE">공증됨 (ACTIVE)</option>
+            <option value="EXPIRED">만료됨 (EXPIRED)</option>
+            <option value="EXECUTED">집행됨 (EXECUTED)</option>
+            <option value="REVOKED">취소됨 (REVOKED)</option>
         </Select>
         <ActionButton danger onClick={handleChangeWillStatus} disabled={isLoading || selectedWillIds.size === 0 || !newStatusForAction}>
           선택 항목 상태 변경
@@ -317,14 +338,9 @@ const AdminWillManagementPage = () => {
             </tr>
           </thead>
           <tbody>
-            {isLoading && wills.length === 0 && ( // 첫 로딩 시 또는 검색 중 데이터 없을 때
-                <Tr><Td colSpan="7">유언장 목록을 불러오는 중...</Td></Tr>
-            )}
-            {!isLoading && !error && sortedWills.length === 0 && (
-              <Tr><Td colSpan="7">표시할 유언장이 없습니다.</Td></Tr>
-            )}
-            {/* 에러 발생 시에는 별도 메시지 영역에서 표시하므로, 여기서는 목록을 비우거나 로딩 상태가 아닐때만 목록 표시 */}
-            {!isLoading && sortedWills.map((will) => ( // 에러 없을 때만 목록 렌더링
+            {isLoading && wills.length === 0 && (<Tr><Td colSpan="7">유언장 목록을 불러오는 중...</Td></Tr>)}
+            {!isLoading && !error && sortedWills.length === 0 && (<Tr><Td colSpan="7">표시할 유언장이 없습니다.</Td></Tr>)}
+            {!isLoading && sortedWills.map((will) => (
               <Tr key={will.id}>
                 <Td>
                   <input
@@ -350,4 +366,4 @@ const AdminWillManagementPage = () => {
   );
 };
 
-export default AdminWillManagementPage;
+export default DesignatedWillManagementPage;

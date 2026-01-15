@@ -128,7 +128,7 @@ const NotaryRegisterPage = () => {
     gender: "MAN",
     phone: "",
     companyName: "",
-    companyAddress: "",
+    address: "",
     registrationNumber: "",
   });
 
